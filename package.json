@@ -1,0 +1,15 @@
+{
+  "name": "crisphooks",
+  "version": "0.0.1",
+  "description": "Simple asynchronous/synchronous hooks for Node.JS and browsers",
+  "keywords": ["hooks", "hook"],
+  "license" : "BSD-2-Clause",
+  "author": "Chris Breneman <crispy@cluenet.org>",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/crispy1989/crisphooks.git"
+  },
+  "main": "./crisphooks.js",
+  "dependencies": {
+  }
+}

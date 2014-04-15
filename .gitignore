@@ -1,0 +1,6 @@
+node_modules
+Node_Framework.sublime-project
+Node_Framework.sublime-workspace
+project.sublime-project
+project.sublime-workspace
+*.swp
