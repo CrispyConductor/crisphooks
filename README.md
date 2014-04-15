@@ -3,6 +3,12 @@ crisphooks
 
 Simple asynchronous/synchronous hooks for Node.JS and browsers.
 
+## Installing
+
+```
+npm install crisphooks
+```
+
 ## Asynchronous or Synchronous Hooks
 
 ```javascript
