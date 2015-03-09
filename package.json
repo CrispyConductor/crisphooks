@@ -1,10 +1,11 @@
 {
   "name": "crisphooks",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "description": "Simple asynchronous/synchronous hooks for Node.JS and browsers",
   "keywords": [
     "hooks",
-    "hook"
+    "hook",
+    "promise"
   ],
   "license": "BSD-2-Clause",
   "author": "Chris Breneman <crispy@cluenet.org>",

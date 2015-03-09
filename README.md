@@ -1,7 +1,15 @@
 crisphooks
 ==========
 
-Simple asynchronous/synchronous hooks for Node.JS and browsers.
+Simple asynchronous/synchronous hooks for Node.JS and browsers.  Works well with both
+promise-based and callback-based architectures.
+
+## Changes in 2.0
+
+CrispHooks 2.0 contains an API overhaul to make the library more friendly to promise-based
+structures.  Upgrading old callback-based code to use CrispHooks 2.0 may require changing
+plain calls to `.hook()` and `.trigger()` to `.hookSync()`, `.hookAsync()`, `.triggerSync()`,
+or `.triggerAsync()`.  The functions `.hook()` and `.trigger()` now utilize promises.
 
 ## Installing
 
@@ -11,24 +19,31 @@ npm install crisphooks
 
 ## Asynchronous or Synchronous Hooks
 
+Hooks registered using the `hook()` method can either return scalar values or Promises.
+If it returns a Promise, the hook finishes executing before the next hook starts.
+
 ```javascript
 var CrispHooks = require('crisphooks');
 var hooks = new CrispHooks();
 
-hooks.hookSync('sleep', function(amount) {
+hooks.hook('sleep', function(amount) {
 	console.log('Sleeping for ' + amount);
 });
 
-hooks.hookAsync('sleep', function(next, amount) {
-	setTimeout(function() {
-		console.log('zzzz...');
-		next();
-	}, amount);
+hooks.hook('sleep', function(amount) {
+	return new Promise(function(resolve) {
+		setTimeout(function() {
+			resolve();
+		}, amount);
+	});
 });
 
-hooks.trigger('sleep', 5000, function(error) {
-	if(error) console.log('Got error sleeping!');
-	else console.log('Done sleeping.');
+hooks.hook('sleep', function() {
+	console.log('zzzz...');
+});
+
+hooks.trigger('sleep', 5000).then(function() {
+	console.log('Done sleeping.');
 });
 ```
 
@@ -39,10 +54,38 @@ zzzz...
 Done sleeping.
 ```
 
+## With callbacks instead of Promises
+
+The same thing can be done in a callback-style instead of a Promise-style.
+
+```js
+var CrispHooks = require('crisphooks');
+var hooks = new CrispHooks();
+
+hooks.hookSync('sleep', function(amount) {
+	console.log('Sleeping for ' + amount);
+});
+
+hooks.hookAsync('sleep', function(amount, next) {
+	setTimeout(function() {
+		next();
+	}, amount);
+});
+
+hooks.hookSync('sleep', function() {
+	console.log('zzzz...');
+});
+
+hooks.triggerAsync('sleep', 5000, function(error) {
+	console.log('Done sleeping.');
+});
+```
+
 ## Can execute synchronously with no async hooks
 
-If there are no asynchronous hooks, hooks can be executed synchronously.  Using .triggerSync()
-when there are asynchonous hooks registered will result in an exception being thrown.
+If there are no asynchronous hooks, hooks can be executed synchronously.  If .triggerSync()
+is used when there are registered asynchronous hooks, all asynchronous hooks are executed
+in parallel and errors from them result in a global exception being thrown.
 
 ```javascript
 hooks.hookSync('doSomething', function() {
@@ -54,16 +97,16 @@ hooks.triggerSync('doSomething');
 
 ## Hook Priorities for Execution Order
 
-Priorities can be specified as a second argument to .hookSync() or .hookAsync() .  Lower priorities execute first.
+Priorities can be specified as a second argument to `.hook()`, `.hookSync()` or `.hookAsync()` .  Lower priorities execute first.
 If no priority is specified, it defaults to 0.  If multiple hooks are registered with the same priority, they are
 executed in the order they are registered.
 
 ```javascript
-hooks.hookSync('doSomething', 5, function() {
+hooks.hook('doSomething', 5, function() {
 	console.log('Do something second');
 });
 
-hooks.hookSync('doSomething', 2, function() {
+hooks.hook('doSomething', 2, function() {
 	console.log('Do something first');
 });
 ```
@@ -76,20 +119,18 @@ error cleanup function of any previous hooks (not including the hook that genera
 in reverse order.
 
 ```javascript
-hooks.hookAsync('doSomething', function(next) {
+hooks.hook('doSomething', function() {
 	console.log('Doing something 1.');
-	next();
-}, function(next, error) {
+}, function(error) {
 	console.log('Handling error 1', error);
-	next();
 });
 
-hooks.hookAsync('doSomething', function(next) {
+hooks.hookAsync('doSomething', function() {
 	console.log('Doing something 2.');
-	next('Some Error');
+	throw new Error('Some Error');
 });
 
-hooks.trigger('doSomething', function(error) {
+hooks.trigger('doSomething').catch(function(error) {
 	console.log('Got error', error);
 });
 ```
@@ -102,29 +143,18 @@ Handling error 1 Some Error
 Got error Some Error
 ```
 
-Errors can be generated inside async hooks by calling next() with an argument (the error).  Errors are generated in
-sync hooks by throwing exceptions.  If using trigger(), errors are returned as the first argument of the callback.
-If using triggerSync(), errors are returned by throwing it as an exception.
+Errors can be generated inside async callback-based hooks by calling next() with an argument (the error).  Errors are generated in
+sync hooks by throwing exceptions.  Hooks registered using `.hook()` may either throw an exception or return a promise that rejects.
 
 Error handler hooks can be manually called using the triggerError() or triggerErrorSync() methods.  The error handlers are called in the reverse order
 of hook priority.
-
-Asynchronous hooks have asynchronous error handlers in the form function(next, error).  Synchronous hooks have
-synchronous error handlers in the form function(error).
-
-```javascript
-hooks.triggerError('doSomething', error, function() {
-});
-hooks.triggerErrorSync('doSomething', error);
-```
 
 ## Setting the this pointer for hooks
 
 You can set what 'this' points to for the hooks by adding it as the first argument of any of the trigger functions.
 
 ```javascript
-hooks.trigger(myObject, 'doSomething', arg1, function(error) {
-});
+hooks.trigger(myObject, 'doSomething', arg1, arg2...);
 ```
 
 ## Mongoose-style Hooks/Middleware
@@ -146,12 +176,11 @@ hooks.post('someEvent', function() {
 	console.log('Post someEvent');
 });
 
-hooks.triggerPre('someEvent', function(error) {
+hooks.triggerPre('someEvent').then(function() {
 	console.log('Done with pre.');
+	hooks.triggerPost('someEvent');
+	console.log('Done with post.');
 });
-
-hooks.triggerPost('someEvent');
-console.log('Done with post.');
 ```
 
 Output:
@@ -161,6 +190,10 @@ Done with pre.
 Post someEvent
 Done with post.
 ```
+
+These can be combined and interspersed with normal hooks.  CrispPrePostHooks inherits from CrispHooks.
+Registering a pre hook is equivalent to registering a hook with its name prefixed with `pre-`.  Similarly,
+a post hook is just the hook name prepended by `post-`.
 
 ## EventEmitter-style Hooks
 
@@ -204,3 +237,4 @@ var myObject2 = new MyObject2();
 var myObject3 = {};
 CrispHooks.addHooks(myObject3);
 ```
+
