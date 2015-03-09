@@ -2,14 +2,25 @@
   "name": "crisphooks",
   "version": "0.0.1",
   "description": "Simple asynchronous/synchronous hooks for Node.JS and browsers",
-  "keywords": ["hooks", "hook"],
-  "license" : "BSD-2-Clause",
+  "keywords": [
+    "hooks",
+    "hook"
+  ],
+  "license": "BSD-2-Clause",
   "author": "Chris Breneman <crispy@cluenet.org>",
   "repository": {
     "type": "git",
     "url": "http://github.com/crispy1989/crisphooks.git"
   },
   "main": "./crisphooks.js",
+  "scripts": {
+    "test": "node ./node_modules/.bin/mocha ./test -R spec"
+  },
   "dependencies": {
+    "es6-promise": "^2.0.1"
+  },
+  "devDependencies": {
+    "chai": "^2.0.0",
+    "mocha": "^2.1.0"
   }
 }
