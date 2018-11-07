@@ -136,7 +136,7 @@ CrispHooks.prototype._sortHooks = function(name) {
 	nameHooks.hooks.sort(function(a, b) {
 		if(a.priority > b.priority) return 1;
 		if(b.priority > a.priority) return -1;
-		return a.hookCtr - b.hookCtr;
+		return a.hookNumber - b.hookNumber;
 	});
 	nameHooks.sorted = true;
 };
