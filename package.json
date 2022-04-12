@@ -1,7 +1,8 @@
 {
   "name": "crisphooks",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Simple asynchronous/synchronous hooks for Node.JS and browsers",
+  "type": "module",
   "keywords": [
     "hooks",
     "hook",
@@ -11,17 +12,23 @@
   "author": "Chris Breneman <crispy@cluenet.org>",
   "repository": {
     "type": "git",
-    "url": "http://github.com/crispy1989/crisphooks.git"
+    "url": "http://github.com/CrispyConductor/crisphooks.git"
   },
-  "main": "./crisphooks.js",
+  "main": "./dist/lib/crisphooks.js",
   "scripts": {
-    "test": "node ./node_modules/.bin/mocha ./test -R spec"
-  },
-  "dependencies": {
-    "es6-promise": "^2.0.1"
+    "test": "node ./node_modules/.bin/mocha -R spec --node-option enable-source-maps ./dist/test",
+    "build": "tsc"
   },
   "devDependencies": {
-    "chai": "^2.0.0",
-    "mocha": "^2.1.0"
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^9.1.0",
+    "@types/node": "^16.11.26",
+    "@types/objtools": "^2.0.0",
+    "chai": "^4.3.6",
+    "mocha": "^9.2.2",
+    "typescript": "^4.6.3"
+  },
+  "dependencies": {
+    "objtools": "^4.0.0"
   }
 }

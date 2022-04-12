@@ -1,6 +1,5 @@
-var expect = require('chai').expect;
-var CrispHooks = require('../crisphooks');
-var Promise = require('es6-promise').Promise;
+import { expect } from 'chai';
+import { CrispHooks, CrispPrePostHooks, EventEmitterMixin } from '../lib/crisphooks.js';
 
 function delayResult(result) {
 	return new Promise(function(resolve) {
@@ -39,36 +38,17 @@ describe('CrispHooks', function() {
 
 	it('should execute hooks in priority order', function(done) {
 		var crisphooks = new CrispHooks();
-		crisphooks.hook('foo', 2, function(arg) {
+		crisphooks.hook('foo', function(arg) {
 			return delayResult('A' + arg);
-		});
-		crisphooks.hook('foo', 3, function(arg) {
+		}, null, 2);
+		crisphooks.hook('foo', function(arg) {
 			return delayResult('B' + arg);
-		});
-		crisphooks.hook('foo', 1, function(arg) {
+		}, null, 3);
+		crisphooks.hook('foo', function(arg) {
 			return delayResult('C' + arg);
-		});
+		}, null, 1);
 		crisphooks.trigger('foo', 1).then(function(result) {
 			expect(result).to.deep.equal([ 'C1', 'A1', 'B1' ]);
-			done();
-		}).catch(done);
-	});
-
-	it('should execute hooks with the correct this', function(done) {
-		var crisphooks = new CrispHooks();
-		crisphooks.hook('foo', function(arg) {
-			expect(this).to.equal(crisphooks);
-			return delayResult('A' + arg);
-		});
-		crisphooks.hook('foo', function(arg) {
-			expect(this).to.equal(crisphooks);
-			return delayResult('B' + arg);
-		});
-		crisphooks.hook('foo', function(arg) {
-			expect(this).to.equal(crisphooks);
-			return delayResult('C' + arg);
-		});
-		crisphooks.trigger('foo', 1).then(function(result) {
 			done();
 		}).catch(done);
 	});
@@ -150,88 +130,35 @@ describe('CrispHooks', function() {
 	it('should execute error handler hooks in reverse order', function(done) {
 		var crisphooks = new CrispHooks();
 		var results = [];
-		crisphooks.hook('foo', 1, function(arg) {
+		crisphooks.hook('foo', function(arg) {
 			results.push('A');
 			return delayResult('A' + arg);
-		}, function(error, arg) {
+		}, function(error: any, arg: any) {
 			results.push('eA');
 			expect(error).to.equal(123);
 			expect(arg).to.equal(1);
-		});
-		crisphooks.hook('foo', 2, function(arg) {
+		}, 1);
+		crisphooks.hook('foo', function(arg) {
 			results.push('B');
 			return delayResult('B' + arg);
 		}, function(error, arg) {
 			results.push('eB');
 			expect(error).to.equal(123);
 			expect(arg).to.equal(1);
-			return delayResult();
-		});
-		crisphooks.hook('foo', 3, function(arg) {
+			return delayResult(undefined);
+		}, 2);
+		crisphooks.hook('foo', function(arg) {
 			results.push('C');
 			return delayError(123);
 		}, function(error, arg) {
 			results.push('eC');
 			throw new Error('should not reach');
-		});
+		}, 3);
 		crisphooks.trigger('foo', 1).then(function() {
 			done(new Error('should not reach'));
 		}, function(error) {
 			expect(error).to.equal(123);
 			expect(results).to.deep.equal([ 'A', 'B', 'C', 'eB', 'eA' ]);
-			done();
-		}).catch(done);
-	});
-
-	it('should execute hooks registered with hookSync', function(done) {
-		var crisphooks = new CrispHooks();
-		crisphooks.hookSync('foo', function(arg) {
-			return 'A' + arg;
-		});
-		crisphooks.hookSync('foo', function(arg) {
-			return 'B' + arg;
-		});
-		crisphooks.hookSync('foo', function(arg) {
-			return 'C' + arg;
-		});
-		crisphooks.trigger('foo', 1).then(function(result) {
-			expect(result).to.deep.equal([ 'A1', 'B1', 'C1' ]);
-			done();
-		}).catch(done);
-	});
-
-	it('should execute hooks with callbacks registered with hookAsync', function(done) {
-		var crisphooks = new CrispHooks();
-		crisphooks.hookAsync('foo', function(next, arg) {
-			next(null, 'A' + arg);
-		});
-		crisphooks.hookAsync('foo', function(next, arg) {
-			next(null, 'B' + arg);
-		});
-		crisphooks.hook('foo', function(arg) {
-			return delayResult('C' + arg);
-		});
-		crisphooks.trigger('foo', 1).then(function(result) {
-			expect(result).to.deep.equal([ 'A1', 'B1', 'C1' ]);
-			done();
-		}).catch(done);
-	});
-
-	it('should handle errors with callbacks registered with hookAsync', function(done) {
-		var crisphooks = new CrispHooks();
-		crisphooks.hookAsync('foo', function(next, arg) {
-			next(null, 'A' + arg);
-		});
-		crisphooks.hookAsync('foo', function(next, arg) {
-			next(123);
-		});
-		crisphooks.hook('foo', function(arg) {
-			return delayResult('C' + arg);
-		});
-		crisphooks.trigger('foo', 1).then(function(result) {
-			done(new Error('should not reach'));
-		}, function(error) {
-			expect(error).to.equal(123);
 			done();
 		}).catch(done);
 	});
@@ -246,7 +173,7 @@ describe('CrispHooks', function() {
 		crisphooks.hook('foo', function(arg) {}, function(error) {
 			expect(error).to.equal(123);
 			results.push('B');
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('foo', function(arg) {}, function(error) {
 			expect(error).to.equal(123);
@@ -314,78 +241,39 @@ describe('CrispHooks', function() {
 		done();
 	});
 
-	it('triggerAsync()', function(done) {
-		var crisphooks = new CrispHooks();
-		crisphooks.hook('foo', function(arg) {
-			return delayResult('A' + arg);
-		});
-		crisphooks.hook('foo', function(arg) {
-			return delayResult('B' + arg);
-		});
-		crisphooks.hook('foo', function(arg) {
-			return delayResult('C' + arg);
-		});
-		crisphooks.triggerAsync('foo', 1, function(error, result) {
-			expect(error).to.not.exist;
-			expect(result).to.deep.equal([ 'A1', 'B1', 'C1' ]);
-			done();
-		});
-	});
-
-	it('triggerErrorAsync()', function(done) {
-		var crisphooks = new CrispHooks();
-		var results = [];
-		crisphooks.hook('foo', function(arg) {}, function(error) {
-			expect(error).to.equal(123);
-			results.push('A');
-		});
-		crisphooks.hook('foo', function(arg) {}, function(error) {
-			expect(error).to.equal(123);
-			results.push('B');
-			return delayResult();
-		});
-		crisphooks.hook('foo', function(arg) {}, function(error) {
-			expect(error).to.equal(123);
-			results.push('C');
-		});
-		crisphooks.triggerErrorAsync('foo', 123, function() {
-			expect(results).to.deep.equal([ 'C', 'B', 'A' ]);
-			done();
-		});
-	});
 
 	it('triggerWrap() should execute the relevant hooks', function(done) {
 		var crisphooks = new CrispHooks();
 		var results = [];
 		crisphooks.hook('pre-foo', function(arg) {
 			results.push('A' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('pre-foo', function(arg) {
 			results.push('B' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('foo', function(arg) {
 			results.push('C' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('foo', function(arg) {
 			results.push('D' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('post-foo', function(arg) {
 			results.push('F' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('post-foo', function(arg) {
 			results.push('G' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
-		crisphooks.triggerWrap('foo', function(arg) {
-			results.push('E' + arg);
-			return delayResult();
+		crisphooks.triggerWrap('foo', function() {
+			results.push('E');
+			return delayResult(undefined);
 		}, 1).then(function() {
-			expect(results).to.deep.equal([ 'A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1' ]);
+			expect(results).to.deep.equal([ 'A1', 'B1', 'C1', 'D1', 'E', 'F1', 'G1' ]);
 			done();
 		}).catch(done);
 	});
@@ -395,46 +283,44 @@ describe('CrispHooks', function() {
 		var results = [];
 		crisphooks.hook('pre-foo', function() {}, function(arg) {
 			results.push('A' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('pre-foo', function() {}, function(arg) {
 			results.push('B' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('foo', function() {}, function(arg) {
 			results.push('C' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('foo', function() {}, function(arg) {
 			results.push('D' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('post-foo', function() {}, function(arg) {
 			results.push('F' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
 		crisphooks.hook('post-foo', function() {
 			return delayError(123);
 		}, function(arg) {
 			results.push('G' + arg);
-			return delayResult();
+			return delayResult(undefined);
 		});
-		crisphooks.triggerWrap('foo', function(arg) {
-			results.push('E' + arg);
-			return delayResult();
+		crisphooks.triggerWrap('foo', function() {
+			results.push('E');
+			return delayResult(undefined);
 		}, 1).then(function() {
 			done(new Error('should not reach'));
 		}, function(error) {
 			expect(error).to.equal(123);
-			expect(results).to.deep.equal([ 'E1', 'F123', 'D123', 'C123', 'B123', 'A123' ]);
+			expect(results).to.deep.equal([ 'E', 'F123', 'D123', 'C123', 'B123', 'A123' ]);
 			done();
 		}).catch(done);
 	});
 
 	it('should support EventEmitter-style hooks', function(done) {
-		var crisphooks = new CrispHooks({
-			eventEmitter: true
-		});
+		var crisphooks = new (EventEmitterMixin(CrispHooks))();
 		var results = [];
 		crisphooks.on('foo', function(arg) {
 			results.push('A' + arg);
@@ -448,21 +334,19 @@ describe('CrispHooks', function() {
 	});
 
 	it('CrispPrePostHooks()', function(done) {
-		var crisphooks = new CrispHooks.CrispPrePostHooks();
-		crisphooks.biz = 10;
+		var crisphooks = new CrispPrePostHooks();
 		var results = [];
-		crisphooks.pre('foo', function(next) {
-			results.push(this.biz + 1);
-			next();
+		crisphooks.pre('foo', function() {
+			results.push(1);
 		});
 		crisphooks.post('foo', function() {
-			results.push(this.biz + 2);
+			results.push(2);
 		});
 		crisphooks.triggerPre('foo').then(function() {
-			expect(results).to.deep.equal([ 11 ]);
+			expect(results).to.deep.equal([ 1 ]);
 			return crisphooks.triggerPost('foo');
 		}).then(function() {
-			expect(results).to.deep.equal([ 11, 12 ]);
+			expect(results).to.deep.equal([ 1, 2 ]);
 			done();
 		}).catch(done);
 	});
